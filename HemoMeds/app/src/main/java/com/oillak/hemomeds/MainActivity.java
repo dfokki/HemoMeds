@@ -133,14 +133,14 @@ public class MainActivity extends Activity {
         for (int i = 0; i < PatientList.size(); i++)
         {
             Patient pat = PatientList.get(i);
-            text += "\"" + pat.FullName + "\"(";
+            text += "{\"" + pat.FullName + "\"(";
             for(int n = 0; n < pat.takenMedication.size(); n++)
             {
                 Patient.Medication med = pat.takenMedication.get(n);
                 text += "[ \"" + med.Batch + "\"," + Long.toString(med.date.getTime()) + " ]";
             }
 
-            text += ")\n";
+            text += ")}\n";
         }
 
         FileOutputStream outputStream;
@@ -174,6 +174,10 @@ super.onPause();
             //Parsing
             for(int k = 0; k < size;)
             {
+                int addToK  = fileStream.indexOf("{",i2);
+                if(addToK == -1)
+                    break;
+                addToK = fileStream.indexOf("}",addToK)-addToK+1;
                  i1 = fileStream.indexOf("\"",i2) + 1;
                 int temp = i1-1;
                  i2 = fileStream.indexOf("\"", i1);
@@ -214,14 +218,14 @@ super.onPause();
                 Log.d("tag", "medication = " + medicalData);
                 PatientList.add(pat);
                 //i2 = fileStream.indexOf(")",i2) + 1;
-                k += temp;
-                i2 = temp;
+                k += addToK;
+                i2 = k;
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
 
-
+//TODO: miksi latautuu "ylimääräistä" dataa?
 
         UpdatePatientList();
 
@@ -259,7 +263,7 @@ super.onPause();
         {
             Patient.Medication temp = selectedPatient.takenMedication.get(i);
             String strDate = sdf.format(temp.date);
-
+            strDate+="\n"+temp.Batch;
             tempList.add(strDate);
         }
         //Aa2 = new ArrayAdapter<String>(this,android.R.layout.simple_list_item_2,tempList);
@@ -288,10 +292,13 @@ super.onPause();
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 String name = input.getText().toString();
-                Patient pat = new Patient();
-                pat.FullName = name;
-                PatientList.add(pat);
-                UpdatePatientList();
+                if(name.length() > 3 )
+                {
+                    Patient pat = new Patient();
+                    pat.FullName = name;
+                    PatientList.add(pat);
+                    UpdatePatientList();
+                }
             }
         });
         builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
@@ -307,10 +314,45 @@ super.onPause();
 
     public void AddMed(View view)
     {
-        selectedPatient.AddMedication("nönönööö");
+
         Log.d("HemoMeds","addMed");
-        Aa2.clear();
-        OnSelected();
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Batchnumber");
+
+// Set up the input
+        final EditText input = new EditText(this);
+// Specify the type of input expected; this, for example, sets the input as a password, and will mask the text
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PERSON_NAME);
+        builder.setView(input);
+
+// Set up the buttons
+        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                String name = input.getText().toString();
+                if(name.length() > 3 )
+                {
+                    selectedPatient.AddMedication(name);
+
+
+                    Aa2.clear();
+                    OnSelected();
+                }
+            }
+        });
+        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.cancel();
+            }
+        });
+
+        builder.show();
+
+
+        //Aa2.clear();
+        //OnSelected();
     }
 
 
