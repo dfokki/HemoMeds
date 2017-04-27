@@ -1,15 +1,27 @@
 package com.oillak.hemomeds;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ListActivity;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.icu.text.CollationElementIterator;
 import android.icu.text.SimpleDateFormat;
 import android.icu.util.Calendar;
 import android.icu.util.TimeZone;
 import android.icu.util.ULocale;
+import android.net.Uri;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
+import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.InputType;
@@ -20,12 +32,20 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.DatePicker;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import com.googlecode.tesseract.android.TessBaseAPI;
+
+import org.w3c.dom.Text;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -34,8 +54,11 @@ import java.util.List;
 import java.util.Locale;
 
 
-public class MainActivity extends Activity {
+public class MainActivity extends AppCompatActivity {
 
+
+
+    Button addmedButton;
     //for adding patients to listviews
     ArrayAdapter Aa;
     //for adding taken medications to listviews
@@ -45,13 +68,170 @@ public class MainActivity extends Activity {
     ListView patientListView;
     ListView patient_mainListView;
     Patient selectedPatient;
+    TessBaseAPI baseAPI ;
+    ImageView imagePreview;
+
+     String recognizedText;
+    /*
+        String mCurrentPhotoPath;
+        File imageF;
+
+        private File createImageFile() throws IOException {
+            // Create an image file name
+            String timeStamp = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+            String imageFileName = "JPEG_" + timeStamp + "_";
+
+            imageF = File.createTempFile(imageFileName,".jpg");
+            return imageF;
+        }
+
+        private File setUpPhotoFile() throws IOException {
+
+            File f = createImageFile();
+            mCurrentPhotoPath = f.getAbsolutePath();
+
+            return f;
+        }
+
+        static final int REQUEST_TAKE_PHOTO = 1;
+
+        //käynnistää Kamera Intentin
+        private void dispatchTakePictureIntent()
+        {
+            Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            // Ensure that there's a camera activity to handle the intent
+            if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+                startActivityForResult(takePictureIntent, REQUEST_TAKE_PHOTO);
+            }
+        }
+        @Override
+        protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+            if (requestCode == REQUEST_TAKE_PHOTO && resultCode == RESULT_OK) {
+                Bundle extras = data.getExtras();
+                Bitmap imageBitmap = (Bitmap) extras.get("data");
+                imagePreview.setImageBitmap(imageBitmap);
+
+                try{
+                    Bitmap bitmap =
+                }
+
+                baseAPI.init(mCurrentPhotoPath,"eng");
+                baseAPI.setImage(imageF);
+                recognizedText = baseAPI.getUTF8Text();
+                baseAPI.end();
+                Log.d("BaseAPIResult", recognizedText);
+                //imagePreview.setVisibility(View.VISIBLE);
+            }
+        }
+
+        */
+    private static final String LOG_TAG = "Text API";
+    private static final int PHOTO_REQUEST = 10;
+    private TextView scanResults;
+    private Uri imageUri;
+    private TessBaseAPI detector;
+    private static final int REQUEST_WRITE_PERMISSION = 20;
+    private static final String SAVED_INSTANCE_URI = "uri";
+    private static final String SAVED_INSTANCE_RESULT = "result";
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        switch (requestCode) {
+            case REQUEST_WRITE_PERMISSION:
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED)
+                {
+                    addmedButton.setEnabled(true);
+                } else {
+                    Toast.makeText(MainActivity.this, "Permission Denied!", Toast.LENGTH_SHORT).show();
+                }
+        }
+    }
+
+    File file;
+
+    private void takePicture() {
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        File photo = new File(Environment.getExternalStorageDirectory(), "picture.jpg");
+        imageUri = Uri.fromFile(photo);
+        intent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
+        startActivityForResult(intent, PHOTO_REQUEST);
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        if (imageUri != null) {
+            outState.putString(SAVED_INSTANCE_URI, imageUri.toString());
+            outState.putString(SAVED_INSTANCE_RESULT, scanResults.getText().toString());
+        }
+        super.onSaveInstanceState(outState);
+    }
+
+    private void launchMediaScanIntent() {
+        Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+        mediaScanIntent.setData(imageUri);
+        this.sendBroadcast(mediaScanIntent);
+    }
+
+    private Bitmap decodeBitmapUri(Context ctx, Uri uri) throws FileNotFoundException {
+        int targetW = 600;
+        int targetH = 600;
+        BitmapFactory.Options bmOptions = new BitmapFactory.Options();
+        bmOptions.inJustDecodeBounds = true;
+        BitmapFactory.decodeStream(ctx.getContentResolver().openInputStream(uri), null, bmOptions);
+        int photoW = bmOptions.outWidth;
+        int photoH = bmOptions.outHeight;
+
+        int scaleFactor = Math.min(photoW / targetW, photoH / targetH);
+        bmOptions.inJustDecodeBounds = false;
+        bmOptions.inSampleSize = scaleFactor;
+
+        return BitmapFactory.decodeStream(ctx.getContentResolver()
+                .openInputStream(uri), null, bmOptions);
+    }
 
 
+  private String scan(){
+
+     /* baseAPI =  new TessBaseAPI();
+      baseAPI.init(file.getAbsolutePath().toString()+ "/","eng");
+      baseAPI.setImage(file);
+      recognizedText = baseAPI.getUTF8Text();
+
+      baseAPI.end();
+*/
+     recognizedText = "recognizedText";
+      Log.d("Scan Result: ", recognizedText);
+      return recognizedText;
+  }
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == PHOTO_REQUEST && resultCode == RESULT_OK) {
+            takePicture();
+            launchMediaScanIntent();
+            try {
+                Bitmap bitmap = decodeBitmapUri(this, imageUri);
+
+            } catch (Exception e) {
+                Toast.makeText(this, "Failed to load Image", Toast.LENGTH_SHORT)
+                        .show();
+                Log.e(LOG_TAG, e.toString());
+            }
+        }
+    }
     @Override
     protected void onCreate(Bundle savedInstanceState)
     {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        setContentView(R.layout.patient_main);
+        baseAPI =  new TessBaseAPI();
+        addmedButton = (Button) findViewById(R.id.button);
+
+      if( ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
+          addmedButton.setEnabled(false);
+          ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE},0);
+      }
 
         //Calendar calendar = Calendar.getInstance();
         //SimpleDateFormat sdf = new SimpleDateFormat("/E/d/MMMM/yyyy/HH:mm",Locale.getDefault());
@@ -64,10 +244,16 @@ public class MainActivity extends Activity {
        //     Log.v("CHECK_DATE", values[i]);
        // }
 
-        setContentView(R.layout.patient_main);
+
+
+
+
+
         patient_mainListView = (ListView)findViewById(R.id.listView);
+
         if(Aa2 == null)
         Aa2 = new ArrayAdapter<String>(this,android.R.layout.simple_list_item_1);
+
         setContentView(R.layout.activity_main);
         patientListView = (ListView)findViewById(R.id.patientListView);
 
@@ -117,6 +303,7 @@ public class MainActivity extends Activity {
                     if(PatientList.get(i).FullName == value)
                     {
                         selectedPatient = PatientList.get(i);
+
                         OnSelected();
                     }
 
@@ -146,14 +333,17 @@ public class MainActivity extends Activity {
         FileOutputStream outputStream;
 
         try {
+
             outputStream = openFileOutput("PatientData", this.MODE_PRIVATE);
             outputStream.write(text.getBytes());
             outputStream.close();
         } catch (Exception e) {
             e.printStackTrace();
         }
+
 super.onPause();
     }
+
 
     @Override
     protected void onResume()
@@ -230,6 +420,8 @@ super.onPause();
         UpdatePatientList();
 
         super.onResume();
+
+
     }
     @Override
     public void onBackPressed()
@@ -248,8 +440,8 @@ super.onPause();
         ArrayList<String> tempList;
         setContentView(R.layout.patient_main);
         tempList = new ArrayList<String>();
-        SimpleDateFormat sdf = new SimpleDateFormat("E  d MMMM yyyy HH:mm",Locale.getDefault());
-
+        //SimpleDateFormat sdf = new SimpleDateFormat("E  d MMMM yyyy HH:mm",Locale.getDefault());
+        String timeStamp = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         //sorting
         Collections.sort(selectedPatient.takenMedication, new Comparator<Patient.Medication>() {
             @Override
@@ -262,7 +454,8 @@ super.onPause();
         for (int i = 0; i < selectedPatient.takenMedication.size(); i++)
         {
             Patient.Medication temp = selectedPatient.takenMedication.get(i);
-            String strDate = sdf.format(temp.date);
+           // String strDate = sdf.format(temp.date);
+            String strDate = timeStamp;
             strDate+="\n"+temp.Batch;
             tempList.add(strDate);
         }
@@ -278,6 +471,8 @@ super.onPause();
 
     public void OnAddPatientClick(View view)
     {
+
+        takePicture();
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Title");
 
@@ -315,6 +510,8 @@ super.onPause();
     public void AddMed(View view)
     {
 
+
+
         Log.d("HemoMeds","addMed");
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -322,15 +519,24 @@ super.onPause();
 
 // Set up the input
         final EditText input = new EditText(this);
+        input.setText("asdasdasdasdasdasd");
 // Specify the type of input expected; this, for example, sets the input as a password, and will mask the text
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PERSON_NAME);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_NORMAL);
         builder.setView(input);
+       // TessBaseAPI baseAPI = new TessBaseAPI();
+       // baseAPI.init(mCurrentPhotoPath,"eng");
+       // baseAPI.setImage(currentImage);
+       // recognizedText = baseAPI.getUTF8Text();
+       // baseAPI.end();
+       // Log.d("BaseAPIResult", recognizedText);
 
 // Set up the buttons
         builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                String name = input.getText().toString();
+
+                //todo: OCR_Text+input.getText().toString()
+                String name  = input.getText().toString();
                 if(name.length() > 3 )
                 {
                     selectedPatient.AddMedication(name);
@@ -339,6 +545,7 @@ super.onPause();
                     Aa2.clear();
                     OnSelected();
                 }
+
             }
         });
         builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
@@ -354,6 +561,8 @@ super.onPause();
         //Aa2.clear();
         //OnSelected();
     }
+
+
 
 
 }

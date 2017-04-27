@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">HemoMeds</string>
     <string name="Test">GitHubi testi</string>
-    <string name="start_screen">patient</string>
+    <string name="start_screen">Patient</string>
     <string name="continue_button_mainmenu">After selecting patient name press continue (this)</string>
     <string name="add_button">Add</string>
     <string name="add_button_hint">Add new patient button</string>
@@ -9,5 +9,5 @@
     <string name="new_med_button">Add med</string>
     <string name="haemorrhage_button">Haemorrhages</string>
     <string name="new_patient">Add Patient</string>
-
+    <string name="album_name">CameraSample</string>
 </resources>
