@@ -39,9 +39,9 @@
             android:id="@+id/button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_alignBottom="@+id/Haemmorhage"
-            android:layout_alignTop="@+id/Haemmorhage"
-            android:layout_toStartOf="@+id/Haemmorhage"
+            android:layout_alignBottom="@+id/scan_med"
+            android:layout_alignTop="@+id/scan_med"
+            android:layout_toStartOf="@+id/scan_med"
             android:hint="@string/continue_button_mainmenu"
             android:onClick="AddMed"
             android:shadowColor="@android:color/holo_red_dark"
@@ -60,13 +60,14 @@
             android:textSize="24dp" />
 
         <Button
+            android:id="@+id/scan_med"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/haemorrhage_button"
-            android:id="@+id/Haemmorhage"
-            android:hint="@string/add_button_hint"
-            android:layout_marginTop="20dp"
             android:layout_below="@+id/patientName"
-            android:layout_toEndOf="@+id/patientName" />
+            android:layout_marginTop="20dp"
+            android:layout_toEndOf="@+id/patientName"
+            android:hint="@string/add_button_hint"
+            android:onClick="OnScanMedClick"
+            android:text="@string/scan_med" />
     </RelativeLayout>
 </LinearLayout>

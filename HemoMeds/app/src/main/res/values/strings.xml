@@ -7,7 +7,7 @@
     <string name="add_button_hint">Add new patient button</string>
     <string name="continue_button_text">Continue</string>
     <string name="new_med_button">Add med</string>
-    <string name="haemorrhage_button">Haemorrhages</string>
+    <string name="scan_med">ScanFromPicture</string>
     <string name="new_patient">Add Patient</string>
     <string name="album_name">CameraSample</string>
 </resources>
