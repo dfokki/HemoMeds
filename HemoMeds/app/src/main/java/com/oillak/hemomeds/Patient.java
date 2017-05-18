@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 /**
- * Created by Jesse on 18.4.2017.
+ * Created by Jesse Kallio on 18.4.2017.
  */
 
 public class Patient
@@ -14,7 +14,6 @@ public class Patient
     public ArrayList<Medication> takenMedication;
     public String FullName;
 
-    public String dateOfBirth;
 
     public Patient()
     {

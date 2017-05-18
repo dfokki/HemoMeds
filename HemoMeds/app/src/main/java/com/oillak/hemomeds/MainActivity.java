@@ -11,23 +11,19 @@ import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 
-import android.graphics.Camera;
-import android.graphics.Canvas;
-import android.graphics.ColorMatrix;
-import android.graphics.ColorMatrixColorFilter;
-import android.graphics.Paint;
-import android.graphics.drawable.Drawable;
-import android.media.Image;
+import android.graphics.Matrix;
+
+import android.media.ExifInterface;
+
 import android.net.Uri;
 import android.os.Environment;
-import android.preference.PreferenceManager;
+
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
-import android.support.v4.content.FileProvider;
+
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.InputType;
@@ -36,10 +32,10 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.DatePicker;
+
 import android.widget.EditText;
-import android.widget.ImageButton;
-import android.widget.ImageView;
+
+
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -50,19 +46,19 @@ import com.googlecode.tesseract.android.TessBaseAPI;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.IOException;
+
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
-import java.util.List;
+
 import java.util.Locale;
 
-import static com.oillak.hemomeds.R.id.imageView;
+
 
 
 public class MainActivity extends AppCompatActivity {
@@ -85,11 +81,6 @@ public class MainActivity extends AppCompatActivity {
     String recognizedText;
 
 
-
-
-    static final int REQUEST_TAKE_PHOTO = 1;
-
-
     static Uri mImageCaptureUri;
 
     //http://stackoverflow.com/questions/15432592/get-file-path-of-image-on-android
@@ -98,31 +89,54 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == CAMERA_REQUEST && resultCode == RESULT_OK) {
             Bitmap photo = (Bitmap) data.getExtras().get("data");
 
-            // CALL THIS METHOD TO GET THE URI FROM THE BITMAP
             Uri tempUri = getImageUri(getApplicationContext(), photo);
 
-            // CALL THIS METHOD TO GET THE ACTUAL PATH
-            //File finalFile = new File(getRealPathFromURI(tempUri));
-           toGrayscale(photo);
-            getTextFromPhoto(toGrayscale(photo));
+            File finalFile = new File(getRealPathFromURI(tempUri));
+
+            getTextFromPhoto(toGrayscale(finalFile,photo));
         }
     }
 
-    public Bitmap toGrayscale(Bitmap bmpOriginal)
+    public Bitmap toGrayscale(File _path ,Bitmap bmpOriginal)
     {
-        int width, height;
-        height = bmpOriginal.getHeight();
-        width = bmpOriginal.getWidth();
+// _path = path to the image to be OCRed
+        try {
 
-        Bitmap bmpGrayscale = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        Canvas c = new Canvas(bmpGrayscale);
-        Paint paint = new Paint();
-        ColorMatrix cm = new ColorMatrix();
-        cm.setSaturation(0);
-        ColorMatrixColorFilter f = new ColorMatrixColorFilter(cm);
-        paint.setColorFilter(f);
-        c.drawBitmap(bmpOriginal, 0, 0, paint);
-        return bmpGrayscale;
+
+            ExifInterface exif = new ExifInterface(_path.getAbsolutePath());
+            int exifOrientation = exif.getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL);
+
+            int rotate = 0;
+
+            switch (exifOrientation) {
+                case ExifInterface.ORIENTATION_ROTATE_90:
+                    rotate = 90;
+                    break;
+                case ExifInterface.ORIENTATION_ROTATE_180:
+                    rotate = 180;
+                    break;
+                case ExifInterface.ORIENTATION_ROTATE_270:
+                    rotate = 270;
+                    break;
+            }
+
+            if (rotate != 0) {
+                int w = bmpOriginal.getWidth();
+                int h = bmpOriginal.getHeight();
+
+                // Setting pre rotate
+                Matrix mtx = new Matrix();
+                mtx.preRotate(rotate);
+
+                // Rotating Bitmap & convert to ARGB_8888, required by tess
+                bmpOriginal = Bitmap.createBitmap(bmpOriginal, 0, 0, w, h, mtx, false);
+            }
+           return bmpOriginal.copy(Bitmap.Config.ARGB_8888, true);
+
+        }catch (Exception e){};
+        return bmpOriginal;
     }
 
     protected void getTextFromPhoto(Bitmap photo) {
@@ -154,6 +168,8 @@ public class MainActivity extends AppCompatActivity {
 //
         try {
             baseAPI.init(DATA_PATH, "eng");
+            //treat text as one line
+            baseAPI.setPageSegMode(5);
             baseAPI.setImage(photo);
             recognizedText = baseAPI.getUTF8Text();
             baseAPI.end();
@@ -262,24 +278,6 @@ public Uri getImageUri(Context inContext, Bitmap inImage) {
           ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE},0);
       }
 
-
-
-        //Calendar calendar = Calendar.getInstance();
-        //SimpleDateFormat sdf = new SimpleDateFormat("/E/d/MMMM/yyyy/HH:mm",Locale.getDefault());
-        //String strDate = sdf.format(calendar.getTime());
-//
-        //String[] values=strDate.split("/",0);
-
-       // for (int i = 0; i < values.length; i++
-       //         ){
-       //     Log.v("CHECK_DATE", values[i]);
-       // }
-
-
-
-
-
-
         patient_mainListView = (ListView)findViewById(R.id.listView);
 
         if(Aa2 == null)
@@ -320,7 +318,6 @@ public Uri getImageUri(Context inContext, Bitmap inImage) {
             holder.add(PatientList.get(i).FullName);
         }
 
-       // Aa.addAll(holder);
         patientListView.setOnItemClickListener(new AdapterView.OnItemClickListener()
         {
             @Override
@@ -344,8 +341,13 @@ public Uri getImageUri(Context inContext, Bitmap inImage) {
         });
     }
 @Override
- protected void onPause()
-    {
+ protected void onPause() {
+    saveData();
+
+    super.onPause();
+}
+
+   protected void saveData(){
         String text = new String();
 
         for (int i = 0; i < PatientList.size(); i++)
@@ -371,92 +373,94 @@ public Uri getImageUri(Context inContext, Bitmap inImage) {
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-super.onPause();
     }
 
 
     @Override
-    protected void onResume()
-    {
+    protected void onResume() {
 
         super.onResume();
 
+        readData();
+
+
+
+
+    }
+
+    protected void readData() {
         FileInputStream inputStream;
-    String fileStream;
+        String fileStream;
 
-if(PatientList.isEmpty()) {
-    try {
-        inputStream = openFileInput("PatientData");
-        // inputStream.write(text.getBytes());
-        int size = inputStream.available();
-        byte[] str = new byte[size];
-        inputStream.read(str);
-        fileStream = new String(str);
-        inputStream.close();
-        int i1 = 0;
-        int i2 = 0;
-        //Parsing
-        for (int k = 0; k < size; ) {
-            int addToK = fileStream.indexOf("{", i2);
-            if (addToK == -1)
-                break;
-            addToK = fileStream.indexOf("}", addToK) - addToK + 1;
-            i1 = fileStream.indexOf("\"", i2) + 1;
-            int temp = i1 - 1;
-            i2 = fileStream.indexOf("\"", i1);
-            String name = fileStream.substring(i1, i2);
-            Log.d("tag", "name = " + name);
+        if (PatientList.isEmpty()) {
+            try {
+                inputStream = openFileInput("PatientData");
+                // inputStream.write(text.getBytes());
+                int size = inputStream.available();
+                byte[] str = new byte[size];
+                inputStream.read(str);
+                fileStream = new String(str);
+                inputStream.close();
+                int i1 = 0;
+                int i2 = 0;
+                //Parsing
+                for (int k = 0; k < size; ) {
+                    int addToK = fileStream.indexOf("{", i2);
+                    if (addToK == -1)
+                        break;
+                    addToK = fileStream.indexOf("}", addToK) - addToK + 1;
+                    i1 = fileStream.indexOf("\"", i2) + 1;
+                    int temp = i1 - 1;
+                    i2 = fileStream.indexOf("\"", i1);
+                    String name = fileStream.substring(i1, i2);
+                    Log.d("tag", "name = " + name);
 
-            i1 = fileStream.indexOf(("("), i2) + 1;
-            i2 = fileStream.indexOf(")", i1);
-            temp = i2 - temp + 1;
-            String medicalData = fileStream.substring(i1, i2);
+                    i1 = fileStream.indexOf(("("), i2) + 1;
+                    i2 = fileStream.indexOf(")", i1);
+                    //temp = i2 - temp + 1;
+                    //Log.d("debug", temp);
+                    String medicalData = fileStream.substring(i1, i2);
 
-            Patient pat = new Patient();
-            pat.FullName = name;
+                    Patient pat = new Patient();
+                    pat.FullName = name;
 
-            for (int i = 0; i < medicalData.length(); ) {
-                i1 = medicalData.indexOf(("["), i2 + 1);
-                i1 = medicalData.indexOf("\"", i1) + 1;
-                i2 = medicalData.indexOf(",", i1);
+                    for (int i = 0; i < medicalData.length(); ) {
+                        i1 = medicalData.indexOf(("["), i2 + 1);
+                        i1 = medicalData.indexOf("\"", i1) + 1;
+                        i2 = medicalData.indexOf(",", i1);
 
-                String batch = medicalData.substring(i1, i2 - 1);
-                i1 = i2;
-                i2 = medicalData.indexOf("]", i2);
-                String dateString = medicalData.substring(i1 + 1, i2 - 1);
+                        String batch = medicalData.substring(i1, i2 - 1);
+                        i1 = i2;
+                        i2 = medicalData.indexOf("]", i2);
+                        String dateString = medicalData.substring(i1 + 1, i2 - 1);
 
-                Log.d("tag", "batch = " + batch);
-                long dateLong = Long.parseLong(dateString);
-                Date date = new Date(dateLong);
-                Log.d("tag", "date = " + date);
-                i = i2 + 1;
+                        Log.d("tag", "batch = " + batch);
+                        long dateLong = Long.parseLong(dateString);
+                        Date date = new Date(dateLong);
+                        Log.d("tag", "date = " + date);
+                        i = i2 + 1;
 
-                pat.AddMedication(batch);
-                pat.takenMedication.get(pat.takenMedication.size() - 1);
-                Patient.Medication medication = pat.takenMedication.get(pat.takenMedication.size() - 1);
+                        pat.AddMedication(batch);
+                        pat.takenMedication.get(pat.takenMedication.size() - 1);
+                        Patient.Medication medication = pat.takenMedication.get(pat.takenMedication.size() - 1);
 
-                medication.date = date;
+                        medication.date = date;
 
+                    }
+                    Log.d("tag", "medication = " + medicalData);
+                    PatientList.add(pat);
+                    //i2 = fileStream.indexOf(")",i2) + 1;
+                    k += addToK;
+                    i2 = k;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-            Log.d("tag", "medication = " + medicalData);
-            PatientList.add(pat);
-            //i2 = fileStream.indexOf(")",i2) + 1;
-            k += addToK;
-            i2 = k;
+            UpdatePatientList();
         }
-    } catch (Exception e) {
-        e.printStackTrace();
     }
 
-//TODO: miksi latautuu "ylimääräistä" dataa?
 
-    UpdatePatientList();
-}
-
-
-
-    }
     @Override
     public void onBackPressed()
     {
@@ -469,13 +473,14 @@ if(PatientList.isEmpty()) {
         else
             super.onBackPressed();
     }
+
     public void OnSelected()
     {
         ArrayList<String> tempList;
         setContentView(R.layout.patient_main);
         tempList = new ArrayList<String>();
-        //SimpleDateFormat sdf = new SimpleDateFormat("E  d MMMM yyyy HH:mm",Locale.getDefault());
-        String timeStamp = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        SimpleDateFormat sdf = new SimpleDateFormat("E  d MMMM yyyy HH:mm",Locale.getDefault());
+
         //sorting
         Collections.sort(selectedPatient.takenMedication, new Comparator<Patient.Medication>() {
             @Override
@@ -484,23 +489,21 @@ if(PatientList.isEmpty()) {
             }
         });
 
-
         for (int i = 0; i < selectedPatient.takenMedication.size(); i++)
         {
             Patient.Medication temp = selectedPatient.takenMedication.get(i);
-           // String strDate = sdf.format(temp.date);
-            String strDate = timeStamp;
+            String strDate = sdf.format(temp.date);
             strDate+="\n"+temp.Batch;
             tempList.add(strDate);
         }
-        //Aa2 = new ArrayAdapter<String>(this,android.R.layout.simple_list_item_2,tempList);
+
         Aa2.clear();
         Aa2.addAll(tempList);
         patient_mainListView = (ListView)findViewById(R.id.listView);
         patient_mainListView.setAdapter(Aa2);
         TextView patientName = (TextView) findViewById(R.id.patientName);
         patientName.setText(selectedPatient.FullName);
-        //setContentView(R.layout.patient_main);
+
     }
 
     public void OnAddPatientClick(View view)
@@ -551,16 +554,9 @@ if(PatientList.isEmpty()) {
 // Set up the input
         final EditText input = new EditText(this);
 
-        input.setText("H8866911A");
-// Specify the type of input expected; this, for example, sets the input as a password, and will mask the text
+        input.setText("H8866911A ( Default )");
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_NORMAL);
         builder.setView(input);
-       // TessBaseAPI baseAPI = new TessBaseAPI();
-       // baseAPI.init(mCurrentPhotoPath,"eng");
-       // baseAPI.setImage(currentImage);
-       // recognizedText = baseAPI.getUTF8Text();
-       // baseAPI.end();
-       // Log.d("BaseAPIResult", recognizedText);
 
 // Set up the buttons
         builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
@@ -586,11 +582,7 @@ if(PatientList.isEmpty()) {
                 dialog.cancel();
             }
         });
-
         builder.show();
-
-        //Aa2.clear();
-        //OnSelected();
     }
 void DialogBuilder(String title, String defauiltText){
     Log.d("HemoMeds","DialogBuilder");
@@ -605,12 +597,7 @@ void DialogBuilder(String title, String defauiltText){
 // Specify the type of input expected; this, for example, sets the input as a password, and will mask the text
     input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_NORMAL);
     builder.setView(input);
-    // TessBaseAPI baseAPI = new TessBaseAPI();
-    // baseAPI.init(mCurrentPhotoPath,"eng");
-    // baseAPI.setImage(currentImage);
-    // recognizedText = baseAPI.getUTF8Text();
-    // baseAPI.end();
-    // Log.d("BaseAPIResult", recognizedText);
+
 
 // Set up the buttons
     builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
